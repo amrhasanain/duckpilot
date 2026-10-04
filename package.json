@@ -1,7 +1,7 @@
 {
   "name": "duckpilot",
   "version": "1.0.0",
-  "description": "A fast, open-source coding agent for your terminal.",
+  "description": "A fast, open-source coding agent for your terminal, powered by Groq.",
   "type": "module",
   "bin": {
     "duckpilot": "./bin/duckpilot.js"
@@ -13,7 +13,17 @@
     "LICENSE",
     "NOTICE"
   ],
-  "keywords": ["agent", "cli", "groq", "coding-agent", "ai"],
+  "scripts": {
+    "start": "node bin/duckpilot.js run",
+    "build:exe": "node scripts/build-exe.mjs"
+  },
+  "keywords": [
+    "agent",
+    "cli",
+    "groq",
+    "coding-agent",
+    "ai"
+  ],
   "engines": {
     "node": ">=18"
   },
