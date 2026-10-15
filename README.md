@@ -164,53 +164,6 @@ Reading, writing, or listing paths outside the working folder requires permissio
 
 DuckPilot can modify files and run commands, so it uses permission checks for potentially risky operations.
 
-### Command confirmation
-
-Before running a command, DuckPilot displays a confirmation box.
-
-```text
-╭─ Run command ────────────────────╮
-│ python -m py_compile main.py     │
-╰──────────────────────────────────╯
-  Do you want to proceed?
-  1. Yes
-  2. Yes, and don't ask again this session
-  3. No
-```
-
-- `1` runs the command once.
-- `2` runs it and remembers the approval for the session, according to the applicable permission rules.
-- `3`, or pressing Enter, refuses the operation.
-
-If you deny a command, DuckPilot receives the result and may try another approach.
-
-### Blue permission box
-
-DuckPilot's command-confirmation box can use blue styling to distinguish permission prompts from other terminal output.
-
-The terminal color definitions are maintained in `src/ansi.js`, while the permission prompt is displayed by the terminal interface.
-
-The ANSI blue color should be defined as:
-
-```js
-blue: wrap(34, 39),
-```
-
-Here, `34` is the standard ANSI blue foreground code, and `39` restores the default foreground color.
-
-For a brighter blue, use:
-
-```js
-blue: wrap(94, 39),
-```
-
-The permission prompt should pass the blue color to the box renderer:
-
-```js
-console.log("\n" + box(lines, { title, color: c.blue }));
-```
-
-The actual appearance depends on terminal color support and configuration.
 
 ### Access outside the working folder
 
