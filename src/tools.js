@@ -118,36 +118,73 @@ async function approvalScope(full) {
   return missing.length ? path.join(cur, missing[0]) : path.dirname(full);
 }
 
+
+function requiresApproval(command) {
+  const patterns = [
+    // Windows CMD
+    /\bdel\b/i,
+    /\berase\b/i,
+    /\brmdir\b/i,
+    /\brd\b/i,
+
+    // PowerShell
+    /\bremove-item\b/i,
+    /\bri\b/i,
+    /\bclear-content\b/i,
+
+    // Linux / macOS
+    /\brm\b/i,
+    /\bunlink\b/i,
+    /\bshred\b/i,
+
+    // Destructive Git commands
+    /\bgit\s+clean\b/i,
+    /\bgit\s+reset\s+--hard\b/i,
+  ];
+
+  return patterns.some((pattern) => pattern.test(command));
+}
+
 // ---------- تنفيذ الأدوات ----------
 export function createTools({ root, permit }) {
-  const approvedDirs = []; // folders outside the working folder approved this session
-  const approvedCommands = new Set();
+  const approvedDirs = [];
 
-  // "~" means the home folder; relative paths start from the working folder
   function resolvePath(p) {
     let s = String(p ?? ".");
+
     if (s === "~" || s.startsWith("~/") || s.startsWith("~\\")) {
       s = path.join(os.homedir(), s.slice(1));
     }
+
     return path.resolve(root, s);
   }
 
-  // Anything outside the working folder needs the user's approval
   async function ensureAccess(full, action) {
     if (isInside(root, full)) return;
+
     if (isInside(CONFIG_DIR, full)) {
-      throw new Error("Access to DuckPilot's settings folder is blocked (it contains your API key).");
+      throw new Error(
+        "Access to DuckPilot's settings folder is blocked."
+      );
     }
+
     if (approvedDirs.some((dir) => isInside(dir, full))) return;
 
     const scope = await approvalScope(full);
+
     const decision = await permit({
       title: `${action} outside working folder`,
       detail: full,
-      alwaysLabel: `Yes, and allow everything under ${scope} this session`,
+      alwaysLabel: `Allow everything under ${scope} this session`,
     });
-    if (!decision) throw new Error("User denied access outside the working folder.");
-    if (decision === "always") approvedDirs.push(scope);
+
+    if (!decision) {
+      throw new Error("User denied access outside the working folder.");
+    }
+
+    if (decision === "always") {
+      approvedDirs.push(scope);
+    }
   }
 
   async function runTool(name, args, { signal } = {}) {
@@ -162,65 +199,102 @@ export function createTools({ root, permit }) {
         case "write_file": {
           const full = resolvePath(args.path);
           await ensureAccess(full, "Write");
+
           await fs.mkdir(path.dirname(full), { recursive: true });
           await fs.writeFile(full, args.content, "utf8");
+
           return `Wrote ${args.content.length} chars to ${full}`;
         }
 
         case "edit_file": {
           const full = resolvePath(args.path);
           await ensureAccess(full, "Edit");
-          const text = await fs.readFile(full, "utf8");
-          const count = text.split(args.old_text).length - 1;
-          if (count === 0) return "Error: old_text not found in file.";
+
+          const content = await fs.readFile(full, "utf8");
+          const count = content.split(args.old_text).length - 1;
+
+          if (count === 0) return "Error: old_text not found.";
           if (count > 1) {
-            return `Error: old_text appears ${count} times, make it more specific.`;
+            return `Error: old_text appears ${count} times.`;
           }
-          await fs.writeFile(full, text.replace(args.old_text, () => args.new_text), "utf8");
+
+          await fs.writeFile(
+            full,
+            content.replace(args.old_text, () => args.new_text),
+            "utf8"
+          );
+
           return `Edited ${full}`;
         }
 
         case "list_dir": {
           const full = resolvePath(args.path || ".");
           await ensureAccess(full, "List");
-          const items = await fs.readdir(full, { withFileTypes: true });
+
+          const items = await fs.readdir(full, {
+            withFileTypes: true,
+          });
+
           return (
-            items.map((i) => (i.isDirectory() ? i.name + "/" : i.name)).join("\n") || "(empty)"
+            items
+              .map((item) =>
+                item.isDirectory() ? `${item.name}/` : item.name
+              )
+              .join("\n") || "(empty)"
           );
         }
 
         case "run_command": {
-          const cwd = args.cwd ? resolvePath(args.cwd) : root;
-          if (!(await exists(cwd))) return `Error: folder does not exist: ${cwd}`;
+          const cwd = args.cwd
+            ? resolvePath(args.cwd)
+            : root;
 
-          const key = `${cwd}\n${args.command}`;
-          if (!approvedCommands.has(key)) {
-            const decision = await permit({
-              title: "Run command",
-              detail: cwd === root ? args.command : `${args.command}\n\nin: ${cwd}`,
-              alwaysLabel: "Yes, and don't ask again this session for this exact command",
-            });
-            if (!decision) return "User denied the command.";
-            if (decision === "always") approvedCommands.add(key);
+          if (!(await exists(cwd))) {
+            return `Error: folder does not exist: ${cwd}`;
           }
 
-          const { stdout, stderr } = await execAsync(args.command, {
+          const command = String(args.command ?? "").trim();
+
+          if (!command) {
+            return "Error: command cannot be empty.";
+          }
+
+          if (requiresApproval(command)) {
+            const decision = await permit({
+              title: "Destructive command requires approval",
+              detail:
+                `Command:\n${command}\n\nWorking directory:\n${cwd}`,
+              alwaysLabel: "Approve this command",
+            });
+
+            if (!decision) {
+              return "User denied the destructive command.";
+            }
+          }
+
+          const { stdout, stderr } = await execAsync(command, {
             cwd,
             timeout: 60_000,
             maxBuffer: 1024 * 1024,
             signal,
+            windowsHide: true,
           });
-          return truncate(`STDOUT:\n${stdout}\nSTDERR:\n${stderr}`);
+
+          return truncate(
+            `STDOUT:\n${stdout}\nSTDERR:\n${stderr}`
+          );
         }
 
         default:
           return `Unknown tool: ${name}`;
       }
     } catch (e) {
-      // نرجّع الخطأ للموديل عشان يصلّح نفسه
       return `Error: ${e.message}\n${e.stdout ?? ""}\n${e.stderr ?? ""}`;
     }
   }
 
-  return { definitions: toolDefinitions, runTool };
+  return {
+    definitions: toolDefinitions,
+    runTool,
+  };
 }
