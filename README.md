@@ -1,9 +1,12 @@
 # 🦆 DuckPilot
 
 **DuckPilot is an AI coding agent that lives in your terminal.**
-You describe what you want in plain language, and it does the work: it reads your files, writes new ones, edits existing code, and runs commands to check that everything works. It is powered by [Groq](https://groq.com), so replies are fast.
 
-```
+You describe what you want in plain language, and it does the work: it reads your files, writes new ones, edits existing code, and runs commands to check that everything works.
+
+DuckPilot is powered by [Groq](https://groq.com), providing fast AI responses.
+
+```text
 ❯ create a todo app in Python with a tkinter GUI, save tasks to tasks.json
 
 ● Write(todo_app/main.py)
@@ -21,26 +24,28 @@ You describe what you want in plain language, and it does the work: it reads you
 
 ## Quick start
 
-**1. Save your Groq API key (once)**
+### 1. Save your Groq API key
 
-Get a key from [console.groq.com](https://console.groq.com/keys), then:
+Get an API key from [Groq Console](https://console.groq.com/keys), then run:
 
 ```bash
 duckpilot -key gsk_your_api_key
 ```
 
-The key is stored in `~/.duckpilot/config.json`.
+Your key is stored in `~/.duckpilot/config.json`.
 
-**2. Go to your project folder and start the agent**
+**Keep your API key private.** Never share it or commit it to a public repository.
+
+### 2. Go to your project folder and start DuckPilot
 
 ```bash
 cd my-project
 duckpilot run
 ```
 
-**3. Type what you want**
+### 3. Tell DuckPilot what you want
 
-```
+```text
 ❯ add a README to this project
 ```
 
@@ -55,12 +60,12 @@ That's it. DuckPilot works inside the folder where you started it.
 | `duckpilot run` | Start the interactive agent in the current folder |
 | `duckpilot run "<task>"` | Run one task and exit |
 | `duckpilot -key <api-key>` | Save your Groq API key |
-| `duckpilot --version` | Show the version |
+| `duckpilot --version` | Show the installed version |
 | `duckpilot --help` | Show help |
 
 ### One-shot mode
 
-Give DuckPilot a task directly, without opening the interactive screen:
+Give DuckPilot a task directly without manually entering the interactive prompt:
 
 ```bash
 duckpilot run "add type hints to utils.py"
@@ -69,22 +74,29 @@ duckpilot run "find and fix the bug in login.js, then run the tests"
 
 ---
 
-## Using the interactive mode
+## Using interactive mode
 
-After `duckpilot run` you will see a welcome box and a prompt (`❯`). Type a request and press Enter.
+After running `duckpilot run`, you'll see a welcome box showing the version, working folder, and current model.
 
-### What happens during a task
+Type your request at the `❯` prompt and press Enter.
 
-DuckPilot works in a loop: it thinks, uses a tool, looks at the result, and continues until the task is done. Each step is printed so you can follow along:
+### What happens during a task?
+
+DuckPilot follows an agent loop: it sends a request to the model, calls tools when needed, examines their results, and continues until the task is finished or the step limit is reached.
 
 | You see | Meaning |
 |---|---|
-| `● Read(file)` | It read a file |
-| `● Write(file)` | It created or overwrote a file (a preview is shown) |
-| `● Update(file)` | It edited part of a file (removed lines in red, added lines in green) |
-| `● List(folder)` | It listed a folder |
-| `● Run(command)` | It wants to run a command (asks for your permission) |
-| `✻ Worked for 12s · 5 tool calls` | Summary when the task finishes |
+| `● Read(file)` | Reads a file |
+| `● Write(file)` | Creates or overwrites a file |
+| `● Update(file)` | Edits part of a file |
+| `● List(folder)` | Lists a directory |
+| `● Run(command)` | Runs a command after the required permission checks |
+| `● search_files(...)` | Searches files for matching content |
+| `● web_search(...)` | Searches the web |
+| `● parse_json(...)` | Validates or parses JSON input |
+| `✻ Worked for 12s · 5 tool calls` | Shows a summary when the task finishes |
+
+The exact tools available depend on the installed version and its tool definitions.
 
 ### Slash commands
 
@@ -92,133 +104,224 @@ Type these at the prompt:
 
 | Command | What it does |
 |---|---|
-| `/help` | Show the available commands |
-| `/clear` | Forget the conversation and start fresh |
+| `/help` | Show available commands |
+| `/clear` | Clear the conversation and start fresh |
 | `/model` | Show the current model |
-| `/model <name>` | Switch to another model for this session |
-| `/exit` | Quit (`exit` and `quit` also work) |
+| `/model <name>` | Switch models for the current session |
+| `/exit` | Exit DuckPilot (`exit` and `quit` also work) |
 
-### Keyboard
+### Keyboard shortcuts
 
-| Keys | What it does |
+| Key | What it does |
 |---|---|
 | `Enter` | Send your message |
-| `Ctrl+C` | Stop the task that is running |
-| `Ctrl+C` twice (at the prompt) | Exit DuckPilot |
+| `Ctrl+C` | Stop the running task |
+| `Ctrl+C` twice at the prompt | Exit DuckPilot |
 
-You can **paste multi-line prompts**. They are sent as a single message.
+You can paste multi-line prompts. They are collected into a single message.
 
-DuckPilot remembers the conversation until you use `/clear` or exit, so you can follow up:
+DuckPilot remembers the conversation while the program is running, allowing follow-up requests:
 
-```
+```text
 ❯ create hello.py that prints a greeting
 ❯ now make it ask for the user's name first
 ```
 
 ---
 
-## Where it works: the working folder
+## Working folder
 
-DuckPilot works in **the folder you were in when you started it**, no matter where DuckPilot itself is installed.
+DuckPilot works in **the folder you were in when you started it**, regardless of where DuckPilot itself is installed.
 
-```bash
+For example, on Windows:
+
+```powershell
 cd D:\Projects\site-a
-duckpilot run          # works on site-a
+duckpilot run
 
 cd D:\Projects\site-b
-duckpilot run          # works on site-b
+duckpilot run
 ```
 
-The welcome box shows the current folder (`Folder`), so you can always check.
+The welcome box displays the current working directory under `Folder`.
 
 ### Using another location
 
-If you name a different location in your request, DuckPilot uses it:
+You can request another location explicitly:
 
-```
+```text
 ❯ create a Flask app in D:\Projects\api
 ❯ save the notes on my Desktop
 ```
 
-You can also use `~` for your home folder. Anything **outside** the working folder asks for your permission first (see below).
+You can also use `~` to refer to your home directory.
+
+Reading, writing, or listing paths outside the working folder requires permission.
 
 ---
 
 ## Permissions and safety
 
-DuckPilot can change files and run commands, so it asks before the risky parts.
+DuckPilot can modify files and run commands, so it uses permission checks for potentially risky operations.
 
-**Commands always ask.** Before running anything it shows the command in a box:
+### Command confirmation
 
-```
+Before running a command, DuckPilot displays a confirmation box.
+
+```text
 ╭─ Run command ────────────────────╮
 │ python -m py_compile main.py     │
 ╰──────────────────────────────────╯
   Do you want to proceed?
   1. Yes
-  2. Yes, and don't ask again this session for this exact command
+  2. Yes, and don't ask again this session
   3. No
 ```
 
-- `1` runs it once.
-- `2` runs it and remembers that exact command for this session.
-- `3` (or just Enter) refuses. The agent is told and can try another approach.
+- `1` runs the command once.
+- `2` runs it and remembers the approval for the session, according to the applicable permission rules.
+- `3`, or pressing Enter, refuses the operation.
 
-**Outside the working folder asks too.** Reading, writing, or listing a path outside the folder you started in asks for permission. Choosing option `2` allows that project folder for the rest of the session.
+If you deny a command, DuckPilot receives the result and may try another approach.
 
-**Inside the working folder** files are created and edited right away, with every change printed on screen. Use git to review or undo changes.
+### Blue permission box
 
-**Always blocked:** DuckPilot cannot access its own settings folder (`~/.duckpilot`), because it contains your API key.
+DuckPilot's command-confirmation box can use blue styling to distinguish permission prompts from other terminal output.
 
-Good habits:
+The terminal color definitions are maintained in `src/ansi.js`, while the permission prompt is displayed by the terminal interface.
 
-- Start DuckPilot inside your project folder, not in your home folder or a drive root.
-- Read each command before you approve it.
-- Commit your work with git before big tasks.
+The ANSI blue color should be defined as:
+
+```js
+blue: wrap(34, 39),
+```
+
+Here, `34` is the standard ANSI blue foreground code, and `39` restores the default foreground color.
+
+For a brighter blue, use:
+
+```js
+blue: wrap(94, 39),
+```
+
+The permission prompt should pass the blue color to the box renderer:
+
+```js
+console.log("\n" + box(lines, { title, color: c.blue }));
+```
+
+The actual appearance depends on terminal color support and configuration.
+
+### Access outside the working folder
+
+Reading, writing, or listing a path outside the working folder requires permission.
+
+Depending on the operation, choosing the persistent approval option allows the applicable access for the rest of the session.
+
+### Files inside the working folder
+
+Files inside the working folder can be created and edited directly, subject to the tool's behavior and applicable safety checks.
+
+Review changes carefully. Use Git to track changes and recover from mistakes.
+
+### Protected settings
+
+DuckPilot restricts access to its own settings directory, `~/.duckpilot`, because it may contain your API key.
+
+### Good habits
+
+- Start DuckPilot inside your project folder.
+- Read commands before approving them.
+- Commit your work with Git before large tasks.
+- Keep backups of important files.
+- Never expose API keys in prompts, logs, or public repositories.
+
+---
+
+## Tools and testing
+
+DuckPilot uses tools to interact with files, execute commands, and retrieve information.
+
+Depending on the installed version, these tools may include:
+
+- **File tools:** read files, write files, edit files, and list directories.
+- **Command tool:** execute terminal commands.
+- **Search tool:** search project files.
+- **Web search tool:** search for information online.
+- **JSON tool:** parse or validate JSON.
+
+### Testing the tools
+
+You can ask DuckPilot to test its own available tools without modifying the project.
+
+Example prompt:
+
+```text
+Test every tool available to you through your actual tool-calling interface.
+
+Do not edit, create, or delete project files.
+Use safe arguments.
+Test each tool once where possible.
+Record the actual result or error for every tool.
+Do not repeat successful calls or get stuck retrying failed calls.
+
+At the end, report the total number of tools discovered,
+passed, failed, and skipped.
+Do not invent results.
+```
+
+For a complete test, make sure the agent tests the actual tools available through its tool-calling interface rather than merely inspecting their source definitions.
+
+Some tools, such as file-writing and file-editing tools, need a safe test environment if you want to test them without changing project files.
 
 ---
 
 ## Writing good requests
 
-DuckPilot does best with clear, specific requests.
+DuckPilot works best with clear, specific instructions.
 
 | Instead of | Try |
 |---|---|
 | `make a website` | `create a portfolio website with index.html, style.css and script.js; dark theme; a contact form` |
 | `fix it` | `login.py crashes when the password is empty. Find the cause and fix it, then run it to check.` |
-| `improve my code` | `refactor utils.py into smaller functions, keep the behavior the same, and run the tests` |
+| `improve my code` | `refactor utils.py into smaller functions, preserve behavior, and run the tests` |
 
-Tips:
+### Tips
 
-- **Say how to verify**: "run it", "run the tests", "check the syntax with `python -m py_compile main.py`". DuckPilot will test its own work and fix mistakes.
-- **Name the files** you want, and the folder if it matters.
-- **Split big jobs** into steps and follow up. It works better than one giant request.
-- **Don't ask it to start GUI apps or servers.** Commands that never finish would hang, so they stop after 60 seconds. Ask it to build the app, then run the app yourself.
-- When it makes a mistake, just tell it what is wrong: `the Delete key doesn't work, fix it`.
+- **Explain how to verify the result.** Ask DuckPilot to run tests or check syntax.
+- **Name the files you want changed.** Include the folder when it matters.
+- **Split large tasks into steps.** Smaller tasks are easier to verify.
+- **Avoid commands that run indefinitely.** Build the application first, then start servers or GUI applications yourself.
+- **Give feedback when something is wrong.** For example: `The Delete key doesn't work. Find the cause and fix it.`
 
 ### Example requests
 
-```
+```text
 list the files here and explain what this project does
 create a Python script that renames all .jpeg files in a folder to .jpg
 read server.js and add error handling to every route
 write unit tests for calculator.py and run them
 create a .gitignore for a Node.js project
+test all available tools without modifying any files
 ```
 
 ---
 
 ## Changing the model
 
-The default model is `openai/gpt-oss-120b`.
+The default model is:
 
-Switch for the current session:
-
+```text
+openai/gpt-oss-120b
 ```
+
+Switch models for the current session:
+
+```text
 ❯ /model llama-3.3-70b-versatile
 ```
 
-Or set it permanently by adding `model` to `~/.duckpilot/config.json`:
+You can also configure the model in `~/.duckpilot/config.json`:
 
 ```json
 {
@@ -227,17 +330,43 @@ Or set it permanently by adding `model` to `~/.duckpilot/config.json`:
 }
 ```
 
-Available models change over time. See the list at [console.groq.com/docs/models](https://console.groq.com/docs/models).
+Available models can change over time. Check the [Groq model documentation](https://console.groq.com/docs/models) for current availability.
+
+A model switch may help when a model is unavailable or its rate limits are restrictive. The alternative model must be supported by your configured provider.
+
+---
+
+## Rate limits and automatic retries
+
+Groq API requests are subject to rate limits. These limits may include requests per minute, tokens per minute, and other model-specific restrictions.
+
+DuckPilot can retry certain rate-limit errors with a delay that increases between attempts, depending on the current implementation.
+
+This can help recover from temporary limits, but it **does not remove or bypass Groq's API limits**.
+
+If you encounter repeated `429 Rate Limit` errors:
+
+- Wait for the provider's rate-limit window to reset.
+- Reduce the size of your prompts and the amount of conversation history sent to the model.
+- Ask DuckPilot to perform large tasks in smaller steps.
+- Avoid unnecessary tool calls and repeated file reads.
+- Switch to another supported model if appropriate.
+- Check your account's current limits in the [Groq Console](https://console.groq.com/).
+
+Automatic retries can reduce interruptions caused by temporary limits, but repeated retries cannot guarantee success if the account or model remains rate-limited.
 
 ---
 
 ## Limits to know about
 
-- Up to **30 steps** per request. If a task is not finished, tell it to continue.
-- Commands time out after **60 seconds**.
-- Long file contents and command output are shortened before being sent to the model.
-- The conversation is kept only while the program is running.
+- Each request is limited to a maximum number of agent steps.
+- Commands have a timeout.
+- Long file contents and command output may be shortened before being sent to the model.
+- Conversation history is kept only while the program is running.
 - The model can make mistakes. Review important changes.
+- API usage is subject to your provider's limits and account configuration.
+
+The exact step limit, timeout, and retry settings depend on the installed version and its configuration.
 
 ---
 
@@ -246,15 +375,40 @@ Available models change over time. See the list at [console.groq.com/docs/models
 | Problem | What to do |
 |---|---|
 | `No API key found` | Run `duckpilot -key <your-key>` |
-| `Your API key looks invalid` (401) | The key is wrong or revoked. Create a new one and run `duckpilot -key` again |
-| `Rate limit reached` (429) | Wait a moment, or switch model with `/model` |
-| A reply is cut off | DuckPilot notices and asks the model to continue in smaller parts. If it keeps happening, ask for smaller steps |
-| It writes in the wrong folder | Check the `Folder` line in the welcome box. Start DuckPilot from the right folder, or name the full path in your request |
-| Strange symbols or no colors | Use Windows Terminal or the VS Code terminal. Set `NO_COLOR=1` to turn colors off |
+| `Your API key looks invalid` (`401`) | Check the key, create a new one if needed, and save it with `duckpilot -key` |
+| `Rate limit reached` (`429`) | Wait for the limit to reset, reduce prompt size, or switch to another supported model |
+| Repeated `429` errors | Check Groq's current rate limits. Automatic retries cannot remove provider limits |
+| A reply is cut off | Ask DuckPilot to continue in smaller steps |
+| It works in the wrong folder | Check the `Folder` line in the welcome box and start DuckPilot from the correct directory |
+| The terminal has strange symbols | Use Windows Terminal or the VS Code terminal |
+| Colors are missing | Check terminal color support and the `NO_COLOR` and `FORCE_COLOR` environment variables |
+| The permission box is not blue | Check the `color: c.blue` argument in the permission prompt, confirm that `c.blue` uses ANSI code `34` or `94`, and restart DuckPilot |
+| A tool returns an error | Check its arguments and the returned error. Avoid repeatedly calling it with the same invalid arguments |
+
+### Terminal color settings
+
+DuckPilot respects `NO_COLOR` and supports `FORCE_COLOR=1`.
+
+In PowerShell, force colors for the current terminal session with:
+
+```powershell
+$env:FORCE_COLOR="1"
+node bin/duckpilot.js run
+```
+
+To disable colors for the current session:
+
+```powershell
+$env:NO_COLOR="1"
+node bin/duckpilot.js run
+```
+
+Remove the environment variable or open a new terminal session to return to the default behavior.
 
 ---
 
 ## License
 
 Copyright 2026 Amr Mohamed Hasanain.
+
 Licensed under the [Apache License 2.0](LICENSE).
