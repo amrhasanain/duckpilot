@@ -1,5 +1,6 @@
-// Copyright 2026 Amr Mohamed Hasanain
-// Licensed under the Apache License, Version 2.0
+
+ // Copyright 2026 Amr Mohamed Hasanain
+ // Licensed under the Apache License, Version 2.0
 
 import { createSpinner } from "./ui/spinner.js";
 import {
@@ -14,7 +15,7 @@ import { c, sym } from "./ui/ansi.js";
 
 const MAX_STEPS = 30;
 
-// Stay below Groq's 8000 TPM limit with some safety margin.
+// Keep a safety margin below the configured TPM limit.
 const REQUEST_TOKEN_BUDGET = 7400;
 
 // Maximum output tokens.
@@ -29,6 +30,11 @@ const OLD_TOOL_RESULT_CHARS = 3000;
 
 // Number of recent conversation groups to preserve.
 const MAX_RECENT_GROUPS = 10;
+
+// Rate-limit retry settings.
+const MAX_RATE_LIMIT_RETRIES = 5;
+const DEFAULT_RETRY_DELAY_MS = 3000;
+const MAX_RETRY_DELAY_MS = 120000;
 
 
 // Estimate tokens from text/JSON.
@@ -319,9 +325,7 @@ function buildBudgetedMessages({
     recentGroups.length < MAX_RECENT_GROUPS;
     i--
   ) {
-    recentGroups.unshift(
-      conversationGroups[i]
-    );
+    recentGroups.unshift(conversationGroups[i]);
   }
 
   candidateMessages = [
@@ -329,29 +333,27 @@ function buildBudgetedMessages({
     ...recentGroups.flat(),
   ];
 
-  candidateMessages =
-    candidateMessages.map(
-      (message, index) => {
-        if (message.role !== "tool") {
-          return message;
-        }
-
-        const isRecent =
-          index >=
-          candidateMessages.length - 5;
-
-        return {
-          ...message,
-          content: compactToolOutput(
-            message.content,
-            isRecent ? 3000 : 1200,
-            isRecent
-              ? "recent tool result"
-              : "older tool result"
-          ),
-        };
+  candidateMessages = candidateMessages.map(
+    (message, index) => {
+      if (message.role !== "tool") {
+        return message;
       }
-    );
+
+      const isRecent =
+        index >= candidateMessages.length - 5;
+
+      return {
+        ...message,
+        content: compactToolOutput(
+          message.content,
+          isRecent ? 3000 : 1200,
+          isRecent
+            ? "recent tool result"
+            : "older tool result"
+        ),
+      };
+    }
+  );
 
   estimated =
     estimateMessagesTokens(candidateMessages) +
@@ -373,23 +375,22 @@ function buildBudgetedMessages({
     ...fewerGroups.flat(),
   ];
 
-  candidateMessages =
-    candidateMessages.map(
-      (message) => {
-        if (message.role !== "tool") {
-          return message;
-        }
-
-        return {
-          ...message,
-          content: compactToolOutput(
-            message.content,
-            1400,
-            "compacted tool result"
-          ),
-        };
+  candidateMessages = candidateMessages.map(
+    (message) => {
+      if (message.role !== "tool") {
+        return message;
       }
-    );
+
+      return {
+        ...message,
+        content: compactToolOutput(
+          message.content,
+          1400,
+          "compacted tool result"
+        ),
+      };
+    }
+  );
 
   estimated =
     estimateMessagesTokens(candidateMessages) +
@@ -412,23 +413,22 @@ function buildBudgetedMessages({
     ...latestGroup,
   ];
 
-  candidateMessages =
-    candidateMessages.map(
-      (message) => {
-        if (message.role !== "tool") {
-          return message;
-        }
-
-        return {
-          ...message,
-          content: compactToolOutput(
-            message.content,
-            1000,
-            "last-resort tool result"
-          ),
-        };
+  candidateMessages = candidateMessages.map(
+    (message) => {
+      if (message.role !== "tool") {
+        return message;
       }
-    );
+
+      return {
+        ...message,
+        content: compactToolOutput(
+          message.content,
+          1000,
+          "last-resort tool result"
+        ),
+      };
+    }
+  );
 
   return {
     messages: candidateMessages,
@@ -437,7 +437,147 @@ function buildBudgetedMessages({
 }
 
 
-// Call the model with streaming.
+// Get a header from either Headers or a plain object.
+function getHeader(headers, name) {
+  if (!headers) return null;
+
+  if (typeof headers.get === "function") {
+    return (
+      headers.get(name) ??
+      headers.get(name.toLowerCase())
+    );
+  }
+
+  const key = Object.keys(headers).find(
+    (item) => item.toLowerCase() === name.toLowerCase()
+  );
+
+  return key ? headers[key] : null;
+}
+
+
+// Calculate the rate-limit retry delay.
+function getRetryDelay(error, attempt) {
+  const headers = error?.headers;
+
+  // Prefer the provider's Retry-After value.
+  const retryAfter = getHeader(
+    headers,
+    "retry-after"
+  );
+
+  if (retryAfter != null) {
+    const seconds = Number(retryAfter);
+
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return Math.min(
+        seconds * 1000,
+        MAX_RETRY_DELAY_MS
+      );
+    }
+
+    const date = Date.parse(retryAfter);
+
+    if (Number.isFinite(date)) {
+      return Math.min(
+        Math.max(0, date - Date.now()),
+        MAX_RETRY_DELAY_MS
+      );
+    }
+  }
+
+  // Groq may provide a token-reset duration.
+  const resetTokens = getHeader(
+    headers,
+    "x-ratelimit-reset-tokens"
+  );
+
+  if (typeof resetTokens === "string") {
+    const match = resetTokens.trim().match(
+      /^(\d+(?:\.\d+)?)(ms|s|m)?$/
+    );
+
+    if (match) {
+      const value = Number(match[1]);
+      const unit = match[2] ?? "s";
+
+      const multiplier = {
+        ms: 1,
+        s: 1000,
+        m: 60000,
+      }[unit];
+
+      return Math.min(
+        value * multiplier,
+        MAX_RETRY_DELAY_MS
+      );
+    }
+  }
+
+  // Exponential backoff with jitter.
+  const backoff = Math.min(
+    DEFAULT_RETRY_DELAY_MS * 2 ** attempt,
+    MAX_RETRY_DELAY_MS
+  );
+
+  const jitter = Math.random() * 1000;
+
+  return Math.min(
+    backoff + jitter,
+    MAX_RETRY_DELAY_MS
+  );
+}
+
+
+// Detect rate-limit errors.
+function isRateLimitError(error) {
+  return (
+    error?.status === 429 ||
+    error?.statusCode === 429 ||
+    error?.code === "rate_limit_exceeded" ||
+    error?.error?.code === "rate_limit_exceeded"
+  );
+}
+
+
+// Wait while still allowing cancellation.
+function waitForRetry(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(
+        signal.reason ??
+        new Error("Request cancelled")
+      );
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+
+    function onAbort() {
+      clearTimeout(timer);
+
+      signal?.removeEventListener(
+        "abort",
+        onAbort
+      );
+
+      reject(
+        signal.reason ??
+        new Error("Request cancelled")
+      );
+    }
+
+    signal?.addEventListener("abort", onAbort, {
+      once: true,
+    });
+  });
+}
+
+
+// Call the model with streaming and rate-limit retries.
 async function streamCompletion({
   groq,
   model,
@@ -446,51 +586,75 @@ async function streamCompletion({
   signal,
   onText,
 }) {
-  const budgeted =
-    buildBudgetedMessages({
-      messages,
-      toolDefinitions: tools,
-    });
+  const budgeted = buildBudgetedMessages({
+    messages,
+    toolDefinitions: tools,
+  });
 
   const estimatedInput =
-    estimateMessagesTokens(
-      budgeted.messages
-    ) +
+    estimateMessagesTokens(budgeted.messages) +
     estimateTokens(budgeted.tools);
 
-  /*
-   * Keep enough room below 8000 TPM.
-   */
-  const availableOutputTokens =
-    Math.max(
-      512,
-      Math.min(
-        MAX_OUTPUT_TOKENS,
-        REQUEST_TOKEN_BUDGET -
-          estimatedInput
-      )
-    );
+  // Never force a 512-token minimum if the budget is exhausted.
+  const availableOutputTokens = Math.max(
+    1,
+    Math.min(
+      MAX_OUTPUT_TOKENS,
+      REQUEST_TOKEN_BUDGET - estimatedInput
+    )
+  );
 
-  const stream =
-    await groq.chat.completions.create(
-      {
-        model,
+  const request = {
+    model,
+    messages: budgeted.messages,
+    tools: budgeted.tools,
+    tool_choice: "auto",
+    max_completion_tokens: availableOutputTokens,
+    temperature: 0.2,
+    stream: true,
+  };
 
-        messages: budgeted.messages,
+  let stream;
+  let attempt = 0;
 
-        tools: budgeted.tools,
+  while (true) {
+    try {
+      stream = await groq.chat.completions.create(
+        request,
+        { signal }
+      );
 
-        tool_choice: "auto",
+      break;
+    } catch (error) {
+      if (signal?.aborted) {
+        throw error;
+      }
 
-        max_completion_tokens:
-          availableOutputTokens,
+      if (!isRateLimitError(error)) {
+        throw error;
+      }
 
-        temperature: 0.2,
+      if (attempt >= MAX_RATE_LIMIT_RETRIES) {
+        throw new Error(
+          "Groq rate limit is still active after " +
+          `${MAX_RATE_LIMIT_RETRIES} retries. ` +
+          "Please wait and try again, or use an API plan " +
+          "with a higher rate limit."
+        );
+      }
 
-        stream: true,
-      },
-      { signal }
-    );
+      const delay = getRetryDelay(error, attempt);
+
+      showNotice(
+        "Groq rate limit reached. Retrying in " +
+        `${Math.ceil(delay / 1000)} seconds ` +
+        `(${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})...`
+      );
+
+      await waitForRetry(delay, signal);
+      attempt++;
+    }
+  }
 
   let content = "";
   let finishReason = null;
@@ -498,25 +662,19 @@ async function streamCompletion({
   const calls = [];
 
   for await (const chunk of stream) {
-    const choice =
-      chunk.choices?.[0];
+    const choice = chunk.choices?.[0];
 
     if (!choice) continue;
 
-    const delta =
-      choice.delta ?? {};
+    const delta = choice.delta ?? {};
 
     if (delta.content) {
       content += delta.content;
       onText(delta.content);
     }
 
-    for (
-      const part of
-      delta.tool_calls ?? []
-    ) {
-      const i =
-        part.index ?? 0;
+    for (const part of delta.tool_calls ?? []) {
+      const i = part.index ?? 0;
 
       calls[i] ??= {
         id: "",
@@ -546,15 +704,13 @@ async function streamCompletion({
     }
 
     if (choice.finish_reason) {
-      finishReason =
-        choice.finish_reason;
+      finishReason = choice.finish_reason;
     }
   }
 
   return {
     content,
-    toolCalls:
-      calls.filter(Boolean),
+    toolCalls: calls.filter(Boolean),
     finishReason,
   };
 }
@@ -568,14 +724,11 @@ function toAssistantMessage({
     role: "assistant",
     content:
       content ||
-      (toolCalls.length
-        ? null
-        : ""),
+      (toolCalls.length ? null : ""),
   };
 
   if (toolCalls.length) {
-    msg.tool_calls =
-      toolCalls;
+    msg.tool_calls = toolCalls;
   }
 
   return msg;
@@ -606,11 +759,8 @@ export function createAgent({
       content: userInput,
     });
 
-    const spinner =
-      createSpinner();
-
-    const startedAt =
-      Date.now();
+    const spinner = createSpinner();
+    const startedAt = Date.now();
 
     let toolCount = 0;
 
@@ -619,27 +769,25 @@ export function createAgent({
       step < MAX_STEPS;
       step++
     ) {
-      const writer =
-        createAssistantWriter();
+      const writer = createAssistantWriter();
 
       let result;
 
       spinner.start();
 
       try {
-        result =
-          await streamCompletion({
-            groq,
-            model: currentModel,
-            messages,
-            tools: tools.definitions,
-            signal,
+        result = await streamCompletion({
+          groq,
+          model: currentModel,
+          messages,
+          tools: tools.definitions,
+          signal,
 
-            onText: (text) => {
-              spinner.stop();
-              writer.write(text);
-            },
-          });
+          onText: (text) => {
+            spinner.stop();
+            writer.write(text);
+          },
+        });
       } catch (e) {
         spinner.stop();
         writer.end();
@@ -649,7 +797,11 @@ export function createAgent({
           return;
         }
 
-        throw e;
+        showNotice(
+          e?.message || "The model request failed."
+        );
+
+        return;
       }
 
       spinner.stop();
@@ -660,22 +812,15 @@ export function createAgent({
       );
 
       // The reply was cut off.
-      if (
-        result.finishReason ===
-        "length"
-      ) {
+      if (result.finishReason === "length") {
         showNotice(
           "Output was cut off. Continuing with a smaller response..."
         );
 
-        for (
-          const call of
-          result.toolCalls
-        ) {
+        for (const call of result.toolCalls) {
           messages.push({
             role: "tool",
-            tool_call_id:
-              call.id,
+            tool_call_id: call.id,
             content:
               "Error: your output was cut off, " +
               "this call was NOT executed. " +
@@ -696,29 +841,18 @@ export function createAgent({
       }
 
       // No tools requested.
-      if (
-        !result.toolCalls.length
-      ) {
-        showSummary(
-          startedAt,
-          toolCount
-        );
-
+      if (!result.toolCalls.length) {
+        showSummary(startedAt, toolCount);
         return;
       }
 
       // Execute requested tools.
-      for (
-        const call of
-        result.toolCalls
-      ) {
+      for (const call of result.toolCalls) {
         if (signal?.aborted) {
           messages.push({
             role: "tool",
-            tool_call_id:
-              call.id,
-            content:
-              "Cancelled by user.",
+            tool_call_id: call.id,
+            content: "Cancelled by user.",
           });
 
           continue;
@@ -728,14 +862,10 @@ export function createAgent({
 
         try {
           args = JSON.parse(
-            call.function.arguments ||
-              "{}"
+            call.function.arguments || "{}"
           );
         } catch {
-          showToolCall(
-            call.function.name,
-            {}
-          );
+          showToolCall(call.function.name, {});
 
           console.log(
             `  ${c.dim(sym.corner)}  ${c.red(
@@ -745,8 +875,7 @@ export function createAgent({
 
           messages.push({
             role: "tool",
-            tool_call_id:
-              call.id,
+            tool_call_id: call.id,
             content:
               "Error: invalid JSON arguments. " +
               "Try again with smaller content.",
@@ -755,25 +884,20 @@ export function createAgent({
           continue;
         }
 
-        showToolCall(
-          call.function.name,
-          args
-        );
+        showToolCall(call.function.name, args);
 
         let output;
 
         try {
-          output =
-            await tools.runTool(
-              call.function.name,
-              args,
-              { signal }
-            );
+          output = await tools.runTool(
+            call.function.name,
+            args,
+            { signal }
+          );
         } catch (error) {
           output =
             `Tool error: ${
-              error?.message ||
-              String(error)
+              error?.message || String(error)
             }`;
         }
 
@@ -785,17 +909,12 @@ export function createAgent({
 
         toolCount++;
 
-        /*
-         * Keep the complete result internally.
-         * It will only be compacted when preparing
-         * the next request.
-         */
+        // Keep the complete result internally.
+        // It is compacted when preparing the next request.
         messages.push({
           role: "tool",
-          tool_call_id:
-            call.id,
-          content:
-            String(output ?? ""),
+          tool_call_id: call.id,
+          content: String(output ?? ""),
         });
       }
 
@@ -807,7 +926,7 @@ export function createAgent({
 
     showNotice(
       `Reached the limit of ${MAX_STEPS} steps. ` +
-      `Tell me to continue if the task isn't finished.`
+      "Tell me to continue if the task isn't finished."
     );
   }
 
@@ -818,8 +937,7 @@ export function createAgent({
       messages.length = 1;
     },
 
-    getModel: () =>
-      currentModel,
+    getModel: () => currentModel,
 
     setModel(name) {
       currentModel = name;
