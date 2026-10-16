@@ -19,7 +19,7 @@ DuckPilot is powered by [Groq](https://groq.com), providing fast AI responses.
 
 ● Done. I created todo_app/main.py. Run it with: python todo_app/main.py
 ```
-
+![](terminal.png)
 ---
 
 ## Quick start
@@ -333,10 +333,6 @@ The exact step limit, timeout, and retry settings depend on the installed versio
 | Repeated `429` errors | Check Groq's current rate limits. Automatic retries cannot remove provider limits |
 | A reply is cut off | Ask DuckPilot to continue in smaller steps |
 | It works in the wrong folder | Check the `Folder` line in the welcome box and start DuckPilot from the correct directory |
-| The terminal has strange symbols | Use Windows Terminal or the VS Code terminal |
-| Colors are missing | Check terminal color support and the `NO_COLOR` and `FORCE_COLOR` environment variables |
-| The permission box is not blue | Check the `color: c.blue` argument in the permission prompt, confirm that `c.blue` uses ANSI code `34` or `94`, and restart DuckPilot |
-| A tool returns an error | Check its arguments and the returned error. Avoid repeatedly calling it with the same invalid arguments |
 
 ### Terminal color settings
 
