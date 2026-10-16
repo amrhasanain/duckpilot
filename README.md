@@ -334,25 +334,7 @@ The exact step limit, timeout, and retry settings depend on the installed versio
 | A reply is cut off | Ask DuckPilot to continue in smaller steps |
 | It works in the wrong folder | Check the `Folder` line in the welcome box and start DuckPilot from the correct directory |
 
-### Terminal color settings
 
-DuckPilot respects `NO_COLOR` and supports `FORCE_COLOR=1`.
-
-In PowerShell, force colors for the current terminal session with:
-
-```powershell
-$env:FORCE_COLOR="1"
-node bin/duckpilot.js run
-```
-
-To disable colors for the current session:
-
-```powershell
-$env:NO_COLOR="1"
-node bin/duckpilot.js run
-```
-
-Remove the environment variable or open a new terminal session to return to the default behavior.
 
 ---
 
