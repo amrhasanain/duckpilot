@@ -29,8 +29,12 @@ DuckPilot is powered by [Groq](https://groq.com), providing fast AI responses.
 
 
 [![Download for Linux](https://img.shields.io/badge/Download%20for-Linux-FCC624?style=flat&logo=linux&logoColor=black)](https://github.com/amrhasanain/duckpilot/releases/download/v2.0.0/duckpilot-linux-x64.zip)
+
 [![Download for Mac](https://img.shields.io/badge/Download%20for-Mac-333333?style=flat&logo=apple&logoColor=white)](https://github.com/amrhasanain/duckpilot/releases/download/v2.0.0/duckpilot-macos-arm64.zip)
+
 [![Download for Windows](https://img.shields.io/badge/Download%20for-Windows-0078D4?style=flat&logo=windows11&logoColor=white)](https://github.com/amrhasanain/duckpilot/releases/download/v2.0.0/duckpilot-win-x64.zip)
+
+---
 
 ### 1. Save your Groq API key
 
