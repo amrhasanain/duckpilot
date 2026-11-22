@@ -1,15 +1,20 @@
 <p align="center">
+  <img src="duckpilot.jpeg" alt="DuckPilot" width="200">
+  <br>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-339933?style=flat&logo=nodedotjs&logoColor=white" alt="Node.js"></a>
   <a href="https://groq.com/"><img src="https://img.shields.io/badge/Groq-F55036?style=flat" alt="Groq"></a>
-  <br>
   <a href="https://en.wikipedia.org/wiki/Command-line_interface"><img src="https://img.shields.io/badge/Terminal-222222?style=flat&logo=windows-terminal&logoColor=white" alt="Terminal"></a>
   <a href="https://github.com/amrhasanain/duckpilot"><img src="https://img.shields.io/badge/AI-Coding%20Agent-6A5ACD?style=flat" alt="AI Coding Agent"></a>
   <a href="https://github.com/amrhasanain/duckpilot/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat" alt="Apache 2.0"></a>
 </p>
 
-# 🦆 DuckPilot
+<h1 align="center">🦆 DuckPilot</h1>
 
-**DuckPilot is an AI coding agent that lives in your terminal.**
+<p align="center">
+  <strong>DuckPilot is an AI coding agent that lives in your terminal.</strong>
+</p>
+
+---
 
 You describe what you want in plain language, and it does the work: it reads your files, writes new ones, edits existing code, and runs commands to check that everything works.
 
