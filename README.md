@@ -1,3 +1,11 @@
+<p align="center">
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-339933?style=flat&logo=nodedotjs&logoColor=white" alt="Node.js"></a>
+  <a href="https://groq.com/"><img src="https://img.shields.io/badge/Groq-F55036?style=flat" alt="Groq"></a>
+  <br>
+  <a href="https://en.wikipedia.org/wiki/Command-line_interface"><img src="https://img.shields.io/badge/Terminal-222222?style=flat&logo=windows-terminal&logoColor=white" alt="Terminal"></a>
+  <a href="https://github.com/amrhasanain/duckpilot"><img src="https://img.shields.io/badge/AI-Coding%20Agent-6A5ACD?style=flat" alt="AI Coding Agent"></a>
+  <a href="https://github.com/amrhasanain/duckpilot/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat" alt="Apache 2.0"></a>
+</p>
 
 # 🦆 DuckPilot
 
