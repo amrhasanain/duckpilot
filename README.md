@@ -6,17 +6,22 @@
   <a href="https://en.wikipedia.org/wiki/Command-line_interface"><img src="https://img.shields.io/badge/Terminal-222222?style=flat&logo=windows-terminal&logoColor=white" alt="Terminal"></a>
   <a href="https://github.com/amrhasanain/duckpilot"><img src="https://img.shields.io/badge/AI-Coding%20Agent-6A5ACD?style=flat" alt="AI Coding Agent"></a>
   <a href="https://github.com/amrhasanain/duckpilot/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat" alt="Apache 2.0"></a>
+  <a href="https://www.microsoft.com/windows"><img src="https://img.shields.io/badge/Windows-0078D6?style=flat&logo=windows&logoColor=white" alt="Windows"></a>
+  <a href="https://www.linux.org/"><img src="https://img.shields.io/badge/Linux-FCC624?style=flat&logo=linux&logoColor=black" alt="Linux"></a>
+  <a href="https://www.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-000000?style=flat&logo=apple&logoColor=white" alt="macOS"></a>
+  <a href="https://github.com/amrhasanain/Githubdeployer"><img src="https://img.shields.io/badge/CLI-334155?style=flat&logo=windowsterminal&logoColor=white" alt="CLI"></a>
 </p>
 
 <h1 align="center">🦆 DuckPilot</h1>
 
 <p align="center">
   <strong>DuckPilot is an AI coding agent that lives in your terminal.</strong>
+  <br>
+  You describe what you want in plain language, and it does the work: it reads your files, writes new ones, edits existing code, and runs commands to check that everything works.
 </p>
 
 ---
 
-You describe what you want in plain language, and it does the work: it reads your files, writes new ones, edits existing code, and runs commands to check that everything works.
 
 DuckPilot is powered by [Groq](https://groq.com), providing fast AI responses.
 
